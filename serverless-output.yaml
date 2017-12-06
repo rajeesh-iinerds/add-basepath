@@ -1,0 +1,13 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  CICDApiGatewayPreTestFunction:
+    Properties:
+      CodeUri: s3://cicdsample.appcohesion.io/83714e22eb5eba9314df56ca6c4b2dfa
+      Environment:
+        Variables:
+          S3_BUCKET: cicdsample.appcohesion.io
+      FunctionName: CiCdBasePathPreTestManager
+      Handler: index.handler
+      Runtime: nodejs6.10
+    Type: AWS::Serverless::Function
+Transform: AWS::Serverless-2016-10-31
