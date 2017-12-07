@@ -110,5 +110,26 @@ exports.handler = function(event, context, callback) {
         });    
     }    
 
+    // Notify AWS CodePipeline of a failed job
+    var putJobFailure = function(message) {
+        var params = {
+            jobId: jobId,
+            failureDetails: {
+                message: JSON.stringify(message),
+                type: 'JobFailed',
+                externalExecutionId: context.invokeid
+            }
+        };
+        codepipeline.putJobFailureResult(params, function(err, data) {
+            context.fail(message);      
+        });
+    };
+
+    // Validate the URL passed in UserParameters
+    if(!stackName) {
+        putJobFailure('The UserParameters field must contain the Stack Name!');  
+        return;
+    }
+
     putJobSuccess('Success');
 };
