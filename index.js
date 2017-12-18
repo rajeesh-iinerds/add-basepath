@@ -1,6 +1,8 @@
 /**
  * @author Rajeesh <rajeesh.k@iinerds.com>
  * @version: 0.3
+ * @desc: This fucntion will create the BasePAth mapping for the "staging" stage for the staging domain api.
+ * 
  */
 
 'use strict'
@@ -13,8 +15,13 @@ var AWS = require('aws-sdk');
  */
 
 AWS.config.apiVersions = {
-  cloudformation: '2010-05-15',
-  // other service API versions
+  /**
+   * Not sure about the version info of the APIs! 
+   * AWS maintains this way
+   */  
+  cloudformation: '2010-05-15', 
+  codepipeline: '2015-07-09',
+  apigateway: '2015-07-09'
 };
 
 var cloudformation = new AWS.CloudFormation();
@@ -22,7 +29,9 @@ var codepipeline = new AWS.CodePipeline();
 var apigateway = new AWS.APIGateway();
 var lammbda = new AWS.Lambda();
 
-// Lambda handler start here.
+var stagingDomain = "cicdtest-staging.appcohesion.io";
+
+// Lambda handler starts here.
 exports.handler = function(event, context, callback) {
 
     //Retrieve the CodePipeline ID 
@@ -45,83 +54,105 @@ exports.handler = function(event, context, callback) {
 
     var putJobSuccess = function(message) {
 
-        //console.log(data);
-      
+        // Define the Cloudformation stack parameters. The processed CF template need to be used.    
         var cpParams = {
             jobId: jobId
         };
 
-        console.log("Job Id: ", jobId);
-        //console.log("Stack Name: ", stackName);
+        /**
+        * CodePipeline JobSuccess method as required by CodePipeline.
+        */
         codepipeline.putJobSuccessResult(cpParams, function(err, data) {
             if (err) {
                 callback(err);
             }
             else {
+                /**
+                * Get the CF Processed template for getting the API and Function name.
+                */
                 cloudformation.getTemplate(stackParams, function(err, data) {
                     if (err) { 
-                        //console.log(err, err.stack);
                         callback(err);
                     }
                     else {
+                        /**
+                        * Processed Template body.
+                        * Retreive the API Name, as defined in the SAM template, which is extracted here.
+                        */
                         var templateBody = data.TemplateBody;
                         var jsonTemplate = JSON.parse(templateBody);
                         var restApiName = jsonTemplate.Resources.CCTApi.Properties.Name;
                         var functionName = jsonTemplate.Resources.CCTFunction.Properties.FunctionName;
 
+                        // Define the API List parameters.    
                         var apiListParams = {
                             limit: 20,   
                         };
 
-                        console.log(restApiName);
-                        
+                        /**
+                         * Get the current BasePath parameters
+                         */
                         var getBasePathParams = {
                             basePath: restApiName, /* required */
-                            domainName: 'cicdtest-staging.appcohesion.io' /* required */
+                            /**
+                             * This has to be harcoded. We will hardly going to have dynamic
+                             * domain names. And the "staging" stage completely on this domain.
+                             */
+                            domainName: stagingDomain /* required */
                         };
 
+                        // Retrieve All the API and then pass the Rest API Id to retrieve the correct API.
                         apigateway.getRestApis(apiListParams, function(err, data) {
-                            if (err) {
-                                    //console.log(err, err.stack) 
+                            if (err) { // Do nothig.
                             }    
                             else {
-                                //console.log(data); 
+                                /**
+                                 * Get the REST API here.
+                                 */
                                 var currentApiData = jsonQuery('items[name=' + restApiName+ '].id', {
                                     data: data
                                 }) 
                                 
-                                restApiIdVal = currentApiData.value;
+                                restApiIdVal = currentApiData.value; // REST API Id.
                                 
+                                /**
+                                 * Define the BasePath parameters. Note that this will create the base path 
+                                 * only for "staging" stage.
+                                 */
                                 var createBasePathParams = {
-                                    domainName: 'cicdtest-staging.appcohesion.io', /* required */
+                                    domainName: '', /* required */
                                     restApiId: restApiIdVal, /* required */
-                                    basePath: restApiName,
+                                    basePath: restApiName, /* This is the API URI */
                                     stage: 'staging'
                                 };
-                                console.log(getBasePathParams);
+
+                                /**
+                                 * Create BasePath mapping for "staging" stage. Indeed, the BasePath mapping 
+                                 * of stage depend on the subdomain of the stage of the API.
+                                 */
                                 apigateway.getBasePathMapping(getBasePathParams, function(err, data) {
-                                    //if (err) console.log(err, err.stack); // an error occurred
-                                    //else {
-                                        if (data === null) {
-                                              apigateway.createBasePathMapping(createBasePathParams, function(err, data) {
-                                                if (err) console.log(err, err.stack); // an error occurred
-                                                else     console.log(data);           // successful response
-                                              });
-                                        }
-                                    //}   
+                                    if (data === null) {
+                                        apigateway.createBasePathMapping(createBasePathParams, function(err, data) {
+                                        if (err) console.log(err, err.stack); // an error occurred
+                                        else     console.log(data);           // successful response
+                                        });
+                                    }
                                 });
                             }
                         });   
                     }
                 });
-                callback(null, message);
+                callback(null, message); // We are done.
             }    
         });    
     }    
 
     // Notify AWS CodePipeline of a failed job
     var putJobFailure = function(message) {
-        var params = {
+        /**
+         * Failure params.
+         */
+        var failureParams = {
             jobId: jobId,
             failureDetails: {
                 message: JSON.stringify(message),
@@ -129,7 +160,7 @@ exports.handler = function(event, context, callback) {
                 externalExecutionId: context.invokeid
             }
         };
-        codepipeline.putJobFailureResult(params, function(err, data) {
+        codepipeline.putJobFailureResult(failureParams, function(err, data) {
             context.fail(message);      
         });
     };
@@ -140,5 +171,8 @@ exports.handler = function(event, context, callback) {
         return;
     }
 
+    /**
+     * Big stuff starts here.
+     */
     putJobSuccess('Success');
 };
