@@ -41,7 +41,10 @@ exports.handler = function(event, context, callback) {
      * Retrieve the value of UserParameters from the Lambda action configuration in AWS CodePipeline, in this case a URL which will be
      * health checked by this function.
      */
-    var stackName = event["CodePipeline.job"].data.actionConfiguration.configuration.UserParameters; 
+    var userParameters = JSON.parse(event["CodePipeline.job"].data.actionConfiguration.configuration.UserParameters);
+    var stackName = userParameters.stackName;
+    var stageDomain =  userParameters.stageDomain;
+    var stageName =  userParameters.stageName;
 
     // Define the Cloudformation stack parameters. The processed CF template need to be used.     
     var stackParams = {
@@ -98,7 +101,7 @@ exports.handler = function(event, context, callback) {
                              * This has to be harcoded. We will hardly going to have dynamic
                              * domain names. And the "staging" stage completely on this domain.
                              */
-                            domainName: stagingDomain /* required */
+                            domainName: stageDomain /* required */
                         };
 
                         // Retrieve All the API and then pass the Rest API Id to retrieve the correct API.
@@ -120,10 +123,10 @@ exports.handler = function(event, context, callback) {
                                  * only for "staging" stage.
                                  */
                                 var createBasePathParams = {
-                                    domainName: '', /* required */
+                                    domainName: stageDomain, /* required */
                                     restApiId: restApiIdVal, /* required */
                                     basePath: restApiName, /* This is the API URI */
-                                    stage: 'staging'
+                                    stage: stageName
                                 };
 
                                 /**
@@ -132,9 +135,12 @@ exports.handler = function(event, context, callback) {
                                  */
                                 apigateway.getBasePathMapping(getBasePathParams, function(err, data) {
                                     if (data === null) {
+                                        /**
+                                         * Create BasePath based on the UserParameters passed in.
+                                         */
                                         apigateway.createBasePathMapping(createBasePathParams, function(err, data) {
-                                        if (err) console.log(err, err.stack); // an error occurred
-                                        else     console.log(data);           // successful response
+                                            if (err) console.log(err, err.stack); // an error occurred
+                                            else     console.log(data);           // successful response
                                         });
                                     }
                                 });
