@@ -42,9 +42,10 @@ exports.handler = function(event, context, callback) {
      * health checked by this function.
      */
     var userParameters = event["CodePipeline.job"].data.actionConfiguration.configuration.UserParameters;
-    var stackName = userParameters.stackName;
-    var stageDomain =  userParameters.stageDomain;
-    var stageName =  userParameters.stageName;
+    var jsonUserParameters = JSON.parse(userParameters);
+    var stackName = jsonUserParameters.stackName;
+    var stageDomain =  jsonUserParameters.stageDomain;
+    var stageName =  jsonUserParameters.stageName;
 
     // Define the Cloudformation stack parameters. The processed CF template need to be used.     
     var stackParams = {
