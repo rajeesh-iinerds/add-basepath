@@ -29,7 +29,7 @@ var codepipeline = new AWS.CodePipeline();
 var apigateway = new AWS.APIGateway();
 var lammbda = new AWS.Lambda();
 
-var stagingDomain = "cicdtest-staging.appcohesion.io";
+//var stagingDomain = "cicdtest-staging.appcohesion.io";
 
 // Lambda handler starts here.
 exports.handler = function(event, context, callback) {
@@ -41,7 +41,7 @@ exports.handler = function(event, context, callback) {
      * Retrieve the value of UserParameters from the Lambda action configuration in AWS CodePipeline, in this case a URL which will be
      * health checked by this function.
      */
-    var userParameters = JSON.parse(event["CodePipeline.job"].data.actionConfiguration.configuration.UserParameters);
+    var userParameters = event["CodePipeline.job"].data.actionConfiguration.configuration.UserParameters;
     var stackName = userParameters.stackName;
     var stageDomain =  userParameters.stageDomain;
     var stageName =  userParameters.stageName;
